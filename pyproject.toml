@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "merchant-search-lab"
+version = "0.1.0"
+description = "Deterministic search and ranking for synthetic merchant catalogs"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "Aryan Kansagara"}]
+
+[tool.setuptools.packages.find]
+include = ["merchant_search_lab*"]
