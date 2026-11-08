@@ -76,6 +76,44 @@ class SearchIndexTests(unittest.TestCase):
         self.assertEqual(self.index.search("unfindable").hits, ())
         self.assertIsNone(self.index.search("unfindable").next_cursor)
 
+    def test_opt_in_typo_tolerance_handles_one_edit_with_discounted_explanation(self) -> None:
+        self.assertEqual(self.index.search("cofee").hits, ())
+        page = self.index.search("cofee", typo_tolerance=True)
+        self.assertEqual([hit.sku for hit in page.hits], ["MUG-BLUE", "MUG-WHITE"])
+        self.assertEqual(page.hits[0].score, 1)
+        self.assertEqual(
+            [(item.field, item.term, item.points) for item in page.hits[0].explanation],
+            [("typo_description", "cofee->coffee", 1)],
+        )
+
+    def test_typo_tolerance_supports_adjacent_transposition(self) -> None:
+        page = self.index.search("stonweare", typo_tolerance=True)
+        self.assertEqual([hit.sku for hit in page.hits], ["MUG-BLUE"])
+        self.assertEqual(page.hits[0].explanation[0].term, "stonweare->stoneware")
+
+    def test_exact_vocabulary_term_is_not_expanded(self) -> None:
+        index = SearchIndex(
+            (
+                Product("EXACT", "Coat", "", (), 1, 1),
+                Product("NEAR", "Boat", "", (), 1, 1),
+            )
+        )
+        self.assertEqual([hit.sku for hit in index.search("coat", typo_tolerance=True).hits], ["EXACT"])
+
+    def test_typo_candidates_are_lexically_bounded(self) -> None:
+        index = SearchIndex(
+            tuple(Product(term.upper(), term, "", (), 1, 1) for term in ("bake", "cake", "fake", "lake"))
+        )
+        self.assertEqual(
+            [hit.sku for hit in index.search("make", typo_tolerance=True).hits],
+            ["BAKE", "CAKE", "FAKE"],
+        )
+
+    def test_typo_setting_is_bound_into_cursor(self) -> None:
+        first = self.index.search("cofee", limit=1, typo_tolerance=True)
+        with self.assertRaisesRegex(SearchValidationError, "does not match"):
+            self.index.search("cofee", limit=1, cursor=first.next_cursor)
+
     def test_search_validation_rejects_unsafe_bounds(self) -> None:
         invalid_calls = (
             lambda: self.index.search(" "),
@@ -84,7 +122,9 @@ class SearchIndexTests(unittest.TestCase):
             lambda: self.index.search("blue", min_price_minor=-1),
             lambda: self.index.search("blue", min_price_minor=10, max_price_minor=9),
             lambda: self.index.search("blue", required_tags=("",)),
+            lambda: self.index.search("blue", typo_tolerance=1),  # type: ignore[arg-type]
             lambda: self.index.search("x" * 513),
+            lambda: self.index.search(" ".join(f"q{index}" for index in range(33))),
         )
         for call in invalid_calls:
             with self.subTest(call=call), self.assertRaises(SearchValidationError):
