@@ -10,7 +10,10 @@ from typing import Iterable
 
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _MAX_QUERY_BYTES = 512
+_MAX_QUERY_TERMS = 32
 _MAX_LIMIT = 100
+_MAX_TYPO_CANDIDATES = 3
+_MIN_TYPO_TERM_LENGTH = 4
 
 
 class SearchValidationError(ValueError):
@@ -60,6 +63,36 @@ def _require_text(name: str, value: object) -> str:
     return value
 
 
+def _is_single_edit(left: str, right: str) -> bool:
+    """Return whether terms differ by one insert, delete, replace, or swap."""
+    if left == right or abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) == len(right):
+        differences = [index for index, pair in enumerate(zip(left, right)) if pair[0] != pair[1]]
+        if len(differences) == 1:
+            return True
+        return (
+            len(differences) == 2
+            and differences[1] == differences[0] + 1
+            and left[differences[0]] == right[differences[1]]
+            and left[differences[1]] == right[differences[0]]
+        )
+    shorter, longer = (left, right) if len(left) < len(right) else (right, left)
+    short_index = 0
+    long_index = 0
+    skipped = False
+    while short_index < len(shorter) and long_index < len(longer):
+        if shorter[short_index] == longer[long_index]:
+            short_index += 1
+            long_index += 1
+        elif skipped:
+            return False
+        else:
+            skipped = True
+            long_index += 1
+    return True
+
+
 class SearchIndex:
     """Immutable in-memory index for a bounded synthetic merchant catalog."""
 
@@ -87,6 +120,15 @@ class SearchIndex:
             tag_terms = frozenset(term for tag in product.tags for term in _tokens(tag))
             indexed.append((product, title_terms, description_terms, tag_terms))
         self._products = tuple(indexed)
+        self._vocabulary = tuple(
+            sorted(
+                {
+                    term
+                    for _, title_terms, description_terms, tag_terms in indexed
+                    for term in (*title_terms, *description_terms, *tag_terms)
+                }
+            )
+        )
 
     def search(
         self,
@@ -98,6 +140,7 @@ class SearchIndex:
         min_price_minor: int | None = None,
         max_price_minor: int | None = None,
         required_tags: tuple[str, ...] = (),
+        typo_tolerance: bool = False,
     ) -> SearchPage:
         _require_text("query", query)
         if len(query.encode("utf-8")) > _MAX_QUERY_BYTES:
@@ -106,6 +149,8 @@ class SearchIndex:
             raise SearchValidationError(f"limit must be an integer from 1 to {_MAX_LIMIT}")
         if not isinstance(in_stock_only, bool):
             raise SearchValidationError("in_stock_only must be a boolean")
+        if not isinstance(typo_tolerance, bool):
+            raise SearchValidationError("typo_tolerance must be a boolean")
         for name, value in (("min_price_minor", min_price_minor), ("max_price_minor", max_price_minor)):
             if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
                 raise SearchValidationError(f"{name} must be a non-negative integer or None")
@@ -117,11 +162,30 @@ class SearchIndex:
         query_terms = tuple(dict.fromkeys(_tokens(query)))
         if not query_terms:
             raise SearchValidationError("query must contain at least one letter or number")
+        if len(query_terms) > _MAX_QUERY_TERMS:
+            raise SearchValidationError(f"query must contain at most {_MAX_QUERY_TERMS} unique terms")
         required_tag_terms = tuple(sorted(set(term for tag in required_tags for term in _tokens(tag))))
         fingerprint = self._fingerprint(
-            query_terms, in_stock_only, min_price_minor, max_price_minor, required_tag_terms
+            query_terms,
+            in_stock_only,
+            min_price_minor,
+            max_price_minor,
+            required_tag_terms,
+            typo_tolerance,
         )
         after = self._decode_cursor(cursor, fingerprint) if cursor is not None else None
+
+        typo_candidates: dict[str, tuple[str, ...]] = {}
+        if typo_tolerance:
+            vocabulary = set(self._vocabulary)
+            for term in query_terms:
+                if term in vocabulary or not _MIN_TYPO_TERM_LENGTH <= len(term) <= 64:
+                    continue
+                typo_candidates[term] = tuple(
+                    candidate
+                    for candidate in self._vocabulary
+                    if _MIN_TYPO_TERM_LENGTH <= len(candidate) <= 64 and _is_single_edit(term, candidate)
+                )[:_MAX_TYPO_CANDIDATES]
 
         hits: list[SearchHit] = []
         normalized_query = " ".join(query_terms)
@@ -148,6 +212,19 @@ class SearchIndex:
                     components.append(ScoreComponent("tag", term, tag_points))
                 if description_points:
                     components.append(ScoreComponent("description", term, description_points))
+                for candidate in typo_candidates.get(term, ()):
+                    display_term = f"{term}->{candidate}"
+                    typo_title_points = title_terms[candidate] * 4
+                    typo_tag_points = 3 if candidate in tag_terms else 0
+                    typo_description_points = description_terms[candidate]
+                    if typo_title_points:
+                        components.append(ScoreComponent("typo_title", display_term, typo_title_points))
+                    if typo_tag_points:
+                        components.append(ScoreComponent("typo_tag", display_term, typo_tag_points))
+                    if typo_description_points:
+                        components.append(
+                            ScoreComponent("typo_description", display_term, typo_description_points)
+                        )
             score = sum(component.points for component in components)
             if score:
                 hits.append(
@@ -178,9 +255,10 @@ class SearchIndex:
         min_price_minor: int | None,
         max_price_minor: int | None,
         required_tag_terms: tuple[str, ...],
+        typo_tolerance: bool,
     ) -> str:
         request = json.dumps(
-            [query_terms, in_stock_only, min_price_minor, max_price_minor, required_tag_terms],
+            [query_terms, in_stock_only, min_price_minor, max_price_minor, required_tag_terms, typo_tolerance],
             separators=(",", ":"),
             ensure_ascii=True,
         )
