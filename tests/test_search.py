@@ -76,6 +76,9 @@ class SearchIndexTests(unittest.TestCase):
         self.assertEqual(self.index.search("unfindable").hits, ())
         self.assertIsNone(self.index.search("unfindable").next_cursor)
 
+    def test_catalog_skus_preserve_index_order(self) -> None:
+        self.assertEqual(self.index.skus, tuple(product.sku for product in PRODUCTS))
+
     def test_opt_in_typo_tolerance_handles_one_edit_with_discounted_explanation(self) -> None:
         self.assertEqual(self.index.search("cofee").hits, ())
         page = self.index.search("cofee", typo_tolerance=True)
