@@ -130,6 +130,11 @@ class SearchIndex:
             )
         )
 
+    @property
+    def skus(self) -> tuple[str, ...]:
+        """Return catalog SKUs in deterministic index-insertion order."""
+        return tuple(product.sku for product, _, _, _ in self._products)
+
     def search(
         self,
         query: str,

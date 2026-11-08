@@ -15,6 +15,7 @@ Independent portfolio project. Not affiliated with Shopify or any merchant platf
 - stable `score DESC, sku ASC` ordering and focused Python 3.11/3.14 tests;
 - opt-in one-edit typo tolerance (insert, delete, replace, or adjacent swap) with discounted, explicit score components;
 - conservative correction: exact vocabulary terms are never expanded, and each missing query term has at most three lexically selected candidates.
+- reproducible synthetic relevance evaluation with per-query and macro precision@k, recall@k, and mean reciprocal rank.
 
 ## Run
 
@@ -24,6 +25,12 @@ python demo.py
 ```
 
 The demo searches a small synthetic catalog and prints ranked results plus score components as JSON.
+
+## Synthetic relevance evaluation
+
+`evaluate_relevance` accepts explicit `RelevanceCase` labels and reports deterministic top-k metrics. Precision@k always uses `k` as its denominator, recall@k uses every judged-relevant SKU, and reciprocal rank uses the first relevant result within the top k. Inputs are bounded to 1,000 cases and `k <= 100`; duplicate queries, duplicate labels, unknown catalog SKUs, and empty relevance sets are rejected.
+
+The labels are hand-authored synthetic fixtures for regression comparisons. They are not clicks, conversions, customer behavior, or evidence of real-world search quality. Metric changes should be inspected query by query rather than treated as an automatic release decision.
 
 ## Ranking contract
 
@@ -43,4 +50,4 @@ A product matching any query term is eligible. Filters are applied first. Typo t
 
 ## Deliberate boundaries
 
-This is a bounded local lab, not a production search engine. The cursor is an encoding, not a signature; an untrusted HTTP boundary should authenticate or sign it. The index is rebuilt in memory, text normalization is deliberately lightweight, and typo candidate generation scans the in-memory vocabulary with fixed query/candidate bounds rather than using a production spelling index. Ranking does not implement stemming, phonetic matching, synonyms, language-specific analysis, access control, merchandising rules, popularity, conversion optimization, or distributed snapshot consistency. All examples are synthetic and make no claim about real merchant performance.
+This is a bounded local lab, not a production search engine. The cursor is an encoding, not a signature; an untrusted HTTP boundary should authenticate or sign it. The index is rebuilt in memory, text normalization is deliberately lightweight, and typo candidate generation scans the in-memory vocabulary with fixed query/candidate bounds rather than using a production spelling index. Ranking does not implement stemming, phonetic matching, synonyms, language-specific analysis, access control, merchandising rules, popularity, conversion optimization, or distributed snapshot consistency. Relevance metrics do not estimate online impact, fairness, revenue, or conversion. All examples and labels are synthetic and make no claim about real merchant performance.

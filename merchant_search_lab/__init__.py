@@ -1,3 +1,4 @@
+from .evaluation import EvaluationReport, QueryMetrics, RelevanceCase, evaluate_relevance
 from .search import (
     Product,
     ScoreComponent,
@@ -8,10 +9,14 @@ from .search import (
 )
 
 __all__ = [
+    "EvaluationReport",
     "Product",
+    "QueryMetrics",
+    "RelevanceCase",
     "ScoreComponent",
     "SearchHit",
     "SearchIndex",
     "SearchPage",
     "SearchValidationError",
+    "evaluate_relevance",
 ]
