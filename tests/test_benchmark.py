@@ -2,11 +2,12 @@ import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from typing import Any, cast
 
 from merchant_search_lab import SearchValidationError
-from merchant_search_lab.benchmark import load_fixture, main, run_benchmark
+from merchant_search_lab.benchmark import load_fixture, main, run_benchmark, run_comparison
 
 
 FIXTURE = {
@@ -66,6 +67,45 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(errors.getvalue(), "")
         self.assertEqual(json.loads(output.getvalue())["configuration"]["k"], 2)
+
+    def test_comparison_reports_aggregate_and_query_deltas(self) -> None:
+        document = run_comparison(self.fixture_path, k=2)
+
+        self.assertEqual(document["mode"], "typo_tolerance_comparison")
+        configuration = cast(dict[str, Any], document["configuration"])
+        aggregate = cast(dict[str, Any], document["aggregate"])
+        queries = cast(list[dict[str, Any]], document["queries"])
+        self.assertEqual(configuration["baseline"], {"typo_tolerance": False})
+        self.assertEqual(configuration["candidate"], {"typo_tolerance": True})
+        self.assertEqual(
+            aggregate["macro_recall_at_k"],
+            {"baseline": 0.5, "candidate": 1.0, "delta": 0.5},
+        )
+        self.assertEqual(queries[0]["baseline_retrieved_skus"], queries[0]["candidate_retrieved_skus"])
+        self.assertEqual(queries[0]["recall_at_k"]["delta"], 0.0)
+        self.assertEqual(queries[1]["baseline_retrieved_skus"], [])
+        self.assertEqual(queries[1]["candidate_retrieved_skus"], ["MUG-BLUE", "MUG-WHITE"])
+        self.assertEqual(queries[1]["recall_at_k"]["delta"], 1.0)
+
+    def test_cli_comparison_is_deterministic(self) -> None:
+        first = io.StringIO()
+        second = io.StringIO()
+
+        self.assertEqual(
+            main([str(self.fixture_path), "--k", "2", "--compare-typo-tolerance"], stdout=first),
+            0,
+        )
+        self.assertEqual(
+            main([str(self.fixture_path), "--k", "2", "--compare-typo-tolerance"], stdout=second),
+            0,
+        )
+        self.assertEqual(first.getvalue(), second.getvalue())
+
+    def test_comparison_and_single_candidate_modes_are_exclusive(self) -> None:
+        errors = io.StringIO()
+        with redirect_stderr(errors), self.assertRaises(SystemExit):
+            main([str(self.fixture_path), "--typo-tolerance", "--compare-typo-tolerance"])
+        self.assertIn("not allowed with argument", errors.getvalue())
 
     def test_cli_reports_validation_without_traceback(self) -> None:
         output = io.StringIO()
