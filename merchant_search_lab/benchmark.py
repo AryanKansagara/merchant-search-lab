@@ -134,13 +134,83 @@ def run_benchmark(path: str | Path, *, k: int, typo_tolerance: bool) -> dict[str
     return report_document(report, typo_tolerance=typo_tolerance)
 
 
+def _metric_comparison(baseline: float, candidate: float) -> dict[str, float]:
+    return {
+        "baseline": baseline,
+        "candidate": candidate,
+        "delta": round(candidate - baseline, 12),
+    }
+
+
+def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
+    """Compare exact-only ranking with typo tolerance on one fixed fixture."""
+    products, cases = load_fixture(path)
+    index = SearchIndex(products)
+    baseline = evaluate_relevance(index, cases, k=k, typo_tolerance=False)
+    candidate = evaluate_relevance(index, cases, k=k, typo_tolerance=True)
+    if tuple(item.query for item in baseline.queries) != tuple(item.query for item in candidate.queries):
+        raise RuntimeError("comparison reports do not contain the same ordered queries")
+
+    return {
+        "synthetic_only": True,
+        "mode": "typo_tolerance_comparison",
+        "configuration": {
+            "k": k,
+            "baseline": {"typo_tolerance": False},
+            "candidate": {"typo_tolerance": True},
+        },
+        "aggregate": {
+            "query_count": baseline.query_count,
+            "macro_precision_at_k": _metric_comparison(
+                baseline.macro_precision_at_k, candidate.macro_precision_at_k
+            ),
+            "macro_recall_at_k": _metric_comparison(
+                baseline.macro_recall_at_k, candidate.macro_recall_at_k
+            ),
+            "mean_reciprocal_rank": _metric_comparison(
+                baseline.mean_reciprocal_rank, candidate.mean_reciprocal_rank
+            ),
+        },
+        "queries": [
+            {
+                "query": baseline_item.query,
+                "relevant_count": baseline_item.relevant_count,
+                "baseline_retrieved_skus": list(baseline_item.retrieved_skus),
+                "candidate_retrieved_skus": list(candidate_item.retrieved_skus),
+                "precision_at_k": _metric_comparison(
+                    baseline_item.precision_at_k, candidate_item.precision_at_k
+                ),
+                "recall_at_k": _metric_comparison(
+                    baseline_item.recall_at_k, candidate_item.recall_at_k
+                ),
+                "reciprocal_rank": _metric_comparison(
+                    baseline_item.reciprocal_rank, candidate_item.reciprocal_rank
+                ),
+            }
+            for baseline_item, candidate_item in zip(
+                baseline.queries, candidate.queries, strict=True
+            )
+        ],
+        "limitations": [
+            "Deltas use hand-authored synthetic labels and do not predict online impact.",
+            "A positive aggregate delta is not an automatic release decision; inspect each query.",
+        ],
+    }
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Evaluate deterministic search against a strict synthetic relevance fixture."
     )
     parser.add_argument("fixture", help="path to the synthetic JSON fixture")
     parser.add_argument("--k", type=int, default=10, help="top-k cutoff (default: 10; maximum: 100)")
-    parser.add_argument("--typo-tolerance", action="store_true", help="enable bounded one-edit typo matching")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--typo-tolerance", action="store_true", help="enable bounded one-edit typo matching")
+    mode.add_argument(
+        "--compare-typo-tolerance",
+        action="store_true",
+        help="compare exact-only baseline with bounded one-edit typo matching",
+    )
     return parser
 
 
@@ -149,7 +219,10 @@ def main(argv: Sequence[str] | None = None, *, stdout: TextIO | None = None, std
     output = sys.stdout if stdout is None else stdout
     errors = sys.stderr if stderr is None else stderr
     try:
-        document = run_benchmark(args.fixture, k=args.k, typo_tolerance=args.typo_tolerance)
+        if args.compare_typo_tolerance:
+            document = run_comparison(args.fixture, k=args.k)
+        else:
+            document = run_benchmark(args.fixture, k=args.k, typo_tolerance=args.typo_tolerance)
     except (OSError, UnicodeError, json.JSONDecodeError, SearchValidationError) as exc:
         print(f"error: {exc}", file=errors)
         return 2

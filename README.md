@@ -17,6 +17,7 @@ Independent portfolio project. Not affiliated with Shopify or any merchant platf
 - conservative correction: exact vocabulary terms are never expanded, and each missing query term has at most three lexically selected candidates.
 - reproducible synthetic relevance evaluation with per-query and macro precision@k, recall@k, and mean reciprocal rank.
 - a strict, bounded JSON benchmark CLI with deterministic machine-readable output and a version-controlled synthetic fixture.
+- exact-only versus typo-tolerant ranking comparison with aggregate and per-query metric deltas.
 
 ## Run
 
@@ -24,6 +25,7 @@ Independent portfolio project. Not affiliated with Shopify or any merchant platf
 python -W error::ResourceWarning -m unittest discover -s tests -v
 python demo.py
 python -m merchant_search_lab.benchmark examples/synthetic_relevance.json --k 3 --typo-tolerance
+python -m merchant_search_lab.benchmark examples/synthetic_relevance.json --k 3 --compare-typo-tolerance
 ```
 
 The demo searches a small synthetic catalog and prints ranked results plus score components as JSON.
@@ -33,6 +35,8 @@ The demo searches a small synthetic catalog and prints ranked results plus score
 `evaluate_relevance` accepts explicit `RelevanceCase` labels and reports deterministic top-k metrics. Precision@k always uses `k` as its denominator, recall@k uses every judged-relevant SKU, and reciprocal rank uses the first relevant result within the top k. Inputs are bounded to 1,000 cases and `k <= 100`; duplicate queries, duplicate labels, unknown catalog SKUs, and empty relevance sets are rejected.
 
 The benchmark CLI loads a UTF-8 JSON document containing exact `catalog` and `cases` fields, then prints stable aggregate and query-level JSON suitable for regression diffs. Fixtures are capped at 1 MB and 10,000 products; unknown or extra fields, duplicate JSON keys, non-finite numbers, invalid product values, and invalid labels fail closed. The checked-in example makes a complete invocation reproducible without external services or data.
+
+`--compare-typo-tolerance` evaluates the exact-only baseline and typo-tolerant candidate against the same catalog, labels, `k`, and query order. It reports baseline, candidate, and signed delta values for every metric plus both retrieved-SKU lists per query. The modes are mutually exclusive so a comparison cannot silently use typo tolerance in its baseline.
 
 The labels are hand-authored synthetic fixtures for regression comparisons. They are not clicks, conversions, customer behavior, or evidence of real-world search quality. Metric changes should be inspected query by query rather than treated as an automatic release decision.
 
