@@ -1,0 +1,42 @@
+{
+  "catalog": [
+    {
+      "sku": "MUG-BLUE",
+      "title": "Blue Stoneware Mug",
+      "description": "Coffee and tea cup",
+      "tags": ["kitchen", "ceramic"],
+      "price_minor": 2400,
+      "inventory": 12
+    },
+    {
+      "sku": "MUG-WHITE",
+      "title": "White Travel Mug",
+      "description": "Insulated reusable coffee cup",
+      "tags": ["travel"],
+      "price_minor": 3200,
+      "inventory": 4
+    },
+    {
+      "sku": "TEA-BLUE",
+      "title": "Blue Breakfast Tea",
+      "description": "Loose-leaf black tea",
+      "tags": ["pantry"],
+      "price_minor": 1800,
+      "inventory": 8
+    }
+  ],
+  "cases": [
+    {
+      "query": "blue mug",
+      "relevant_skus": ["MUG-BLUE"]
+    },
+    {
+      "query": "cofee cup",
+      "relevant_skus": ["MUG-BLUE", "MUG-WHITE"]
+    },
+    {
+      "query": "breakfast tea",
+      "relevant_skus": ["TEA-BLUE"]
+    }
+  ]
+}
