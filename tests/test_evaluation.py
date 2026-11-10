@@ -46,6 +46,21 @@ class RelevanceEvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(report.macro_precision_at_k, 0.5)
         self.assertAlmostEqual(report.macro_recall_at_k, 2 / 3)
         self.assertAlmostEqual(report.mean_reciprocal_rank, 2 / 3)
+        self.assertEqual(report.zero_result_count, 1)
+        self.assertAlmostEqual(report.zero_result_rate, 1 / 3)
+        self.assertEqual(report.no_relevant_result_count, 1)
+        self.assertAlmostEqual(report.no_relevant_result_rate, 1 / 3)
+
+    def test_no_relevant_result_is_distinct_from_zero_results(self) -> None:
+        report = evaluate_relevance(
+            self.index,
+            (RelevanceCase("blue mug", ("TEA-BLUE",)),),
+            k=1,
+        )
+
+        self.assertEqual(report.queries[0].retrieved_skus, ("MUG-BLUE",))
+        self.assertEqual(report.zero_result_count, 0)
+        self.assertEqual(report.no_relevant_result_count, 1)
 
     def test_precision_at_k_uses_k_when_fewer_results_are_retrieved(self) -> None:
         report = evaluate_relevance(

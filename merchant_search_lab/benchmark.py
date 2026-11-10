@@ -107,6 +107,10 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
             "macro_precision_at_k": report.macro_precision_at_k,
             "macro_recall_at_k": report.macro_recall_at_k,
             "mean_reciprocal_rank": report.mean_reciprocal_rank,
+            "zero_result_count": report.zero_result_count,
+            "zero_result_rate": report.zero_result_rate,
+            "no_relevant_result_count": report.no_relevant_result_count,
+            "no_relevant_result_rate": report.no_relevant_result_rate,
         },
         "queries": [
             {
@@ -114,6 +118,8 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
                 "relevant_count": item.relevant_count,
                 "retrieved_skus": list(item.retrieved_skus),
                 "relevant_retrieved": item.relevant_retrieved,
+                "zero_results": not item.retrieved_skus,
+                "no_relevant_results": item.relevant_retrieved == 0,
                 "precision_at_k": item.precision_at_k,
                 "recall_at_k": item.recall_at_k,
                 "reciprocal_rank": item.reciprocal_rank,
@@ -139,6 +145,14 @@ def _metric_comparison(baseline: float, candidate: float) -> dict[str, float]:
         "baseline": baseline,
         "candidate": candidate,
         "delta": round(candidate - baseline, 12),
+    }
+
+
+def _count_comparison(baseline: int, candidate: int) -> dict[str, int]:
+    return {
+        "baseline": baseline,
+        "candidate": candidate,
+        "delta": candidate - baseline,
     }
 
 
@@ -170,6 +184,18 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "mean_reciprocal_rank": _metric_comparison(
                 baseline.mean_reciprocal_rank, candidate.mean_reciprocal_rank
             ),
+            "zero_result_count": _count_comparison(
+                baseline.zero_result_count, candidate.zero_result_count
+            ),
+            "zero_result_rate": _metric_comparison(
+                baseline.zero_result_rate, candidate.zero_result_rate
+            ),
+            "no_relevant_result_count": _count_comparison(
+                baseline.no_relevant_result_count, candidate.no_relevant_result_count
+            ),
+            "no_relevant_result_rate": _metric_comparison(
+                baseline.no_relevant_result_rate, candidate.no_relevant_result_rate
+            ),
         },
         "queries": [
             {
@@ -177,6 +203,14 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 "relevant_count": baseline_item.relevant_count,
                 "baseline_retrieved_skus": list(baseline_item.retrieved_skus),
                 "candidate_retrieved_skus": list(candidate_item.retrieved_skus),
+                "zero_results": {
+                    "baseline": not baseline_item.retrieved_skus,
+                    "candidate": not candidate_item.retrieved_skus,
+                },
+                "no_relevant_results": {
+                    "baseline": baseline_item.relevant_retrieved == 0,
+                    "candidate": candidate_item.relevant_retrieved == 0,
+                },
                 "precision_at_k": _metric_comparison(
                     baseline_item.precision_at_k, candidate_item.precision_at_k
                 ),
@@ -194,6 +228,7 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
         "limitations": [
             "Deltas use hand-authored synthetic labels and do not predict online impact.",
             "A positive aggregate delta is not an automatic release decision; inspect each query.",
+            "Zero-result and no-relevant-result rates describe only the bounded labeled fixture.",
         ],
     }
 
