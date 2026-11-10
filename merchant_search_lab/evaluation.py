@@ -35,6 +35,10 @@ class EvaluationReport:
     macro_precision_at_k: float
     macro_recall_at_k: float
     mean_reciprocal_rank: float
+    zero_result_count: int
+    zero_result_rate: float
+    no_relevant_result_count: int
+    no_relevant_result_rate: float
     queries: tuple[QueryMetrics, ...]
 
 
@@ -110,11 +114,17 @@ def evaluate_relevance(
         )
 
     count = len(query_metrics)
+    zero_result_count = sum(not item.retrieved_skus for item in query_metrics)
+    no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in query_metrics)
     return EvaluationReport(
         k=k,
         query_count=count,
         macro_precision_at_k=sum(item.precision_at_k for item in query_metrics) / count,
         macro_recall_at_k=sum(item.recall_at_k for item in query_metrics) / count,
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in query_metrics) / count,
+        zero_result_count=zero_result_count,
+        zero_result_rate=zero_result_count / count,
+        no_relevant_result_count=no_relevant_result_count,
+        no_relevant_result_rate=no_relevant_result_count / count,
         queries=tuple(query_metrics),
     )

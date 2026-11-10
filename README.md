@@ -18,6 +18,7 @@ Independent portfolio project. Not affiliated with Shopify or any merchant platf
 - reproducible synthetic relevance evaluation with per-query and macro precision@k, recall@k, and mean reciprocal rank.
 - a strict, bounded JSON benchmark CLI with deterministic machine-readable output and a version-controlled synthetic fixture.
 - exact-only versus typo-tolerant ranking comparison with aggregate and per-query metric deltas.
+- explicit zero-result and no-relevant-result counts/rates so retrieval coverage failures are not hidden inside averages.
 
 ## Run
 
@@ -36,9 +37,9 @@ The demo searches a small synthetic catalog and prints ranked results plus score
 
 The benchmark CLI loads a UTF-8 JSON document containing exact `catalog` and `cases` fields, then prints stable aggregate and query-level JSON suitable for regression diffs. Fixtures are capped at 1 MB and 10,000 products; unknown or extra fields, duplicate JSON keys, non-finite numbers, invalid product values, and invalid labels fail closed. The checked-in example makes a complete invocation reproducible without external services or data.
 
-`--compare-typo-tolerance` evaluates the exact-only baseline and typo-tolerant candidate against the same catalog, labels, `k`, and query order. It reports baseline, candidate, and signed delta values for every metric plus both retrieved-SKU lists per query. The modes are mutually exclusive so a comparison cannot silently use typo tolerance in its baseline.
+`--compare-typo-tolerance` evaluates the exact-only baseline and typo-tolerant candidate against the same catalog, labels, `k`, and query order. It reports baseline, candidate, and signed delta values for every metric plus both retrieved-SKU lists per query. Aggregate and per-query diagnostics distinguish a query that retrieved nothing from one that returned results but retrieved no labeled-relevant SKU. The modes are mutually exclusive so a comparison cannot silently use typo tolerance in its baseline.
 
-The labels are hand-authored synthetic fixtures for regression comparisons. They are not clicks, conversions, customer behavior, or evidence of real-world search quality. Metric changes should be inspected query by query rather than treated as an automatic release decision.
+The labels are hand-authored synthetic fixtures for regression comparisons. They are not clicks, conversions, customer behavior, or evidence of real-world search quality. Coverage rates describe only the bounded fixture, not production traffic. Metric changes should be inspected query by query rather than treated as an automatic release decision.
 
 ## Ranking contract
 
