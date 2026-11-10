@@ -7,6 +7,8 @@ from .search import SearchIndex, SearchValidationError
 
 _MAX_EVALUATION_CASES = 1_000
 _MAX_EVALUATION_K = 100
+_MAX_CATEGORIES = 20
+_MAX_CATEGORY_LENGTH = 64
 
 
 @dataclass(frozen=True)
@@ -15,17 +17,32 @@ class RelevanceCase:
 
     query: str
     relevant_skus: tuple[str, ...]
+    category: str = "uncategorized"
 
 
 @dataclass(frozen=True)
 class QueryMetrics:
     query: str
+    category: str
     relevant_count: int
     retrieved_skus: tuple[str, ...]
     relevant_retrieved: int
     precision_at_k: float
     recall_at_k: float
     reciprocal_rank: float
+
+
+@dataclass(frozen=True)
+class CategoryMetrics:
+    category: str
+    query_count: int
+    macro_precision_at_k: float
+    macro_recall_at_k: float
+    mean_reciprocal_rank: float
+    zero_result_count: int
+    zero_result_rate: float
+    no_relevant_result_count: int
+    no_relevant_result_rate: float
 
 
 @dataclass(frozen=True)
@@ -39,7 +56,25 @@ class EvaluationReport:
     zero_result_rate: float
     no_relevant_result_count: int
     no_relevant_result_rate: float
+    categories: tuple[CategoryMetrics, ...]
     queries: tuple[QueryMetrics, ...]
+
+
+def _category_metrics(category: str, queries: tuple[QueryMetrics, ...]) -> CategoryMetrics:
+    count = len(queries)
+    zero_result_count = sum(not item.retrieved_skus for item in queries)
+    no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in queries)
+    return CategoryMetrics(
+        category=category,
+        query_count=count,
+        macro_precision_at_k=sum(item.precision_at_k for item in queries) / count,
+        macro_recall_at_k=sum(item.recall_at_k for item in queries) / count,
+        mean_reciprocal_rank=sum(item.reciprocal_rank for item in queries) / count,
+        zero_result_count=zero_result_count,
+        zero_result_rate=zero_result_count / count,
+        no_relevant_result_count=no_relevant_result_count,
+        no_relevant_result_rate=no_relevant_result_count / count,
+    )
 
 
 def evaluate_relevance(
@@ -76,6 +111,15 @@ def evaluate_relevance(
             raise SearchValidationError("cases must contain RelevanceCase values")
         if not isinstance(case.query, str) or not case.query.strip():
             raise SearchValidationError("case query must be a non-empty string")
+        if (
+            not isinstance(case.category, str)
+            or not case.category
+            or case.category != case.category.strip()
+            or len(case.category) > _MAX_CATEGORY_LENGTH
+        ):
+            raise SearchValidationError(
+                f"case category must be a trimmed non-empty string of at most {_MAX_CATEGORY_LENGTH} characters"
+            )
         if case.query in seen_queries:
             raise SearchValidationError(f"duplicate case query: {case.query}")
         seen_queries.add(case.query)
@@ -104,6 +148,7 @@ def evaluate_relevance(
         query_metrics.append(
             QueryMetrics(
                 query=case.query,
+                category=case.category,
                 relevant_count=len(relevant),
                 retrieved_skus=retrieved,
                 relevant_retrieved=relevant_retrieved,
@@ -114,6 +159,9 @@ def evaluate_relevance(
         )
 
     count = len(query_metrics)
+    category_names = sorted({item.category for item in query_metrics})
+    if len(category_names) > _MAX_CATEGORIES:
+        raise SearchValidationError(f"cases must contain at most {_MAX_CATEGORIES} categories")
     zero_result_count = sum(not item.retrieved_skus for item in query_metrics)
     no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in query_metrics)
     return EvaluationReport(
@@ -126,5 +174,12 @@ def evaluate_relevance(
         zero_result_rate=zero_result_count / count,
         no_relevant_result_count=no_relevant_result_count,
         no_relevant_result_rate=no_relevant_result_count / count,
+        categories=tuple(
+            _category_metrics(
+                category,
+                tuple(item for item in query_metrics if item.category == category),
+            )
+            for category in category_names
+        ),
         queries=tuple(query_metrics),
     )

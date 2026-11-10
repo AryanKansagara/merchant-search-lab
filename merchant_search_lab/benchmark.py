@@ -12,7 +12,7 @@ from .search import Product, SearchIndex, SearchValidationError
 _MAX_FIXTURE_BYTES = 1_000_000
 _MAX_CATALOG_PRODUCTS = 10_000
 _PRODUCT_KEYS = frozenset({"sku", "title", "description", "tags", "price_minor", "inventory"})
-_CASE_KEYS = frozenset({"query", "relevant_skus"})
+_CASE_KEYS = frozenset({"query", "relevant_skus", "category"})
 
 
 def _strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -88,7 +88,11 @@ def load_fixture(path: str | Path) -> tuple[tuple[Product, ...], tuple[Relevance
         if not isinstance(relevant_skus, list):
             raise SearchValidationError(f"cases[{index}].relevant_skus must be a JSON array")
         cases.append(
-            RelevanceCase(query=cast(str, case["query"]), relevant_skus=tuple(relevant_skus))
+            RelevanceCase(
+                query=cast(str, case["query"]),
+                relevant_skus=tuple(relevant_skus),
+                category=cast(str, case["category"]),
+            )
         )
 
     # Constructing the index here and evaluating in run_benchmark provide the
@@ -112,9 +116,24 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
             "no_relevant_result_count": report.no_relevant_result_count,
             "no_relevant_result_rate": report.no_relevant_result_rate,
         },
+        "categories": [
+            {
+                "category": item.category,
+                "query_count": item.query_count,
+                "macro_precision_at_k": item.macro_precision_at_k,
+                "macro_recall_at_k": item.macro_recall_at_k,
+                "mean_reciprocal_rank": item.mean_reciprocal_rank,
+                "zero_result_count": item.zero_result_count,
+                "zero_result_rate": item.zero_result_rate,
+                "no_relevant_result_count": item.no_relevant_result_count,
+                "no_relevant_result_rate": item.no_relevant_result_rate,
+            }
+            for item in report.categories
+        ],
         "queries": [
             {
                 "query": item.query,
+                "category": item.category,
                 "relevant_count": item.relevant_count,
                 "retrieved_skus": list(item.retrieved_skus),
                 "relevant_retrieved": item.relevant_retrieved,
@@ -164,6 +183,10 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
     candidate = evaluate_relevance(index, cases, k=k, typo_tolerance=True)
     if tuple(item.query for item in baseline.queries) != tuple(item.query for item in candidate.queries):
         raise RuntimeError("comparison reports do not contain the same ordered queries")
+    if tuple(item.category for item in baseline.categories) != tuple(
+        item.category for item in candidate.categories
+    ):
+        raise RuntimeError("comparison reports do not contain the same ordered categories")
 
     return {
         "synthetic_only": True,
@@ -197,9 +220,42 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 baseline.no_relevant_result_rate, candidate.no_relevant_result_rate
             ),
         },
+        "categories": [
+            {
+                "category": baseline_item.category,
+                "query_count": baseline_item.query_count,
+                "macro_precision_at_k": _metric_comparison(
+                    baseline_item.macro_precision_at_k, candidate_item.macro_precision_at_k
+                ),
+                "macro_recall_at_k": _metric_comparison(
+                    baseline_item.macro_recall_at_k, candidate_item.macro_recall_at_k
+                ),
+                "mean_reciprocal_rank": _metric_comparison(
+                    baseline_item.mean_reciprocal_rank, candidate_item.mean_reciprocal_rank
+                ),
+                "zero_result_count": _count_comparison(
+                    baseline_item.zero_result_count, candidate_item.zero_result_count
+                ),
+                "zero_result_rate": _metric_comparison(
+                    baseline_item.zero_result_rate, candidate_item.zero_result_rate
+                ),
+                "no_relevant_result_count": _count_comparison(
+                    baseline_item.no_relevant_result_count,
+                    candidate_item.no_relevant_result_count,
+                ),
+                "no_relevant_result_rate": _metric_comparison(
+                    baseline_item.no_relevant_result_rate,
+                    candidate_item.no_relevant_result_rate,
+                ),
+            }
+            for baseline_item, candidate_item in zip(
+                baseline.categories, candidate.categories, strict=True
+            )
+        ],
         "queries": [
             {
                 "query": baseline_item.query,
+                "category": baseline_item.category,
                 "relevant_count": baseline_item.relevant_count,
                 "baseline_retrieved_skus": list(baseline_item.retrieved_skus),
                 "candidate_retrieved_skus": list(candidate_item.retrieved_skus),
@@ -229,6 +285,7 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "Deltas use hand-authored synthetic labels and do not predict online impact.",
             "A positive aggregate delta is not an automatic release decision; inspect each query.",
             "Zero-result and no-relevant-result rates describe only the bounded labeled fixture.",
+            "Category diagnostics are only as representative as the hand-authored category labels.",
         ],
     }
 

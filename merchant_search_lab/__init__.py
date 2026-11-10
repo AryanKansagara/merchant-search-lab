@@ -1,4 +1,4 @@
-from .evaluation import EvaluationReport, QueryMetrics, RelevanceCase, evaluate_relevance
+from .evaluation import CategoryMetrics, EvaluationReport, QueryMetrics, RelevanceCase, evaluate_relevance
 from .search import (
     Product,
     ScoreComponent,
@@ -9,6 +9,7 @@ from .search import (
 )
 
 __all__ = [
+    "CategoryMetrics",
     "EvaluationReport",
     "Product",
     "QueryMetrics",

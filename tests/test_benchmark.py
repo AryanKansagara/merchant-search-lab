@@ -30,8 +30,16 @@ FIXTURE = {
         },
     ],
     "cases": [
-        {"query": "blue mug", "relevant_skus": ["MUG-BLUE"]},
-        {"query": "cofee", "relevant_skus": ["MUG-BLUE", "MUG-WHITE"]},
+        {
+            "query": "blue mug",
+            "category": "exact_product_intent",
+            "relevant_skus": ["MUG-BLUE"],
+        },
+        {
+            "query": "cofee",
+            "category": "misspelling",
+            "relevant_skus": ["MUG-BLUE", "MUG-WHITE"],
+        },
     ],
 }
 
@@ -49,6 +57,7 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertTrue(document["synthetic_only"])
         configuration = cast(dict[str, object], document["configuration"])
         aggregate = cast(dict[str, object], document["aggregate"])
+        categories = cast(list[dict[str, Any]], document["categories"])
         queries = cast(list[dict[str, Any]], document["queries"])
         self.assertIsInstance(configuration, dict)
         self.assertIsInstance(aggregate, dict)
@@ -57,6 +66,12 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(aggregate["query_count"], 2)
         self.assertEqual(aggregate["zero_result_count"], 0)
         self.assertEqual(aggregate["no_relevant_result_count"], 0)
+        self.assertEqual(
+            [item["category"] for item in categories],
+            ["exact_product_intent", "misspelling"],
+        )
+        self.assertEqual(categories[0]["query_count"], 1)
+        self.assertEqual(queries[0]["category"], "exact_product_intent")
         self.assertEqual(queries[0]["retrieved_skus"], ["MUG-BLUE", "MUG-WHITE"])
         self.assertFalse(queries[0]["zero_results"])
         self.assertFalse(queries[0]["no_relevant_results"])
@@ -78,6 +93,7 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(document["mode"], "typo_tolerance_comparison")
         configuration = cast(dict[str, Any], document["configuration"])
         aggregate = cast(dict[str, Any], document["aggregate"])
+        categories = cast(list[dict[str, Any]], document["categories"])
         queries = cast(list[dict[str, Any]], document["queries"])
         self.assertEqual(configuration["baseline"], {"typo_tolerance": False})
         self.assertEqual(configuration["candidate"], {"typo_tolerance": True})
@@ -102,6 +118,8 @@ class BenchmarkCliTests(unittest.TestCase):
             queries[1]["no_relevant_results"], {"baseline": True, "candidate": False}
         )
         self.assertEqual(queries[1]["recall_at_k"]["delta"], 1.0)
+        self.assertEqual(categories[0]["macro_recall_at_k"]["delta"], 0.0)
+        self.assertEqual(categories[1]["macro_recall_at_k"]["delta"], 1.0)
 
     def test_cli_comparison_is_deterministic(self) -> None:
         first = io.StringIO()
@@ -136,7 +154,9 @@ class BenchmarkCliTests(unittest.TestCase):
 
     def test_unknown_labels_are_rejected_by_canonical_evaluation(self) -> None:
         invalid = dict(FIXTURE)
-        invalid["cases"] = [{"query": "mug", "relevant_skus": ["UNKNOWN"]}]
+        invalid["cases"] = [
+            {"query": "mug", "category": "exact", "relevant_skus": ["UNKNOWN"]}
+        ]
         self.fixture_path.write_text(json.dumps(invalid), encoding="utf-8")
 
         with self.assertRaisesRegex(SearchValidationError, "unknown catalog SKUs"):
@@ -163,6 +183,19 @@ class BenchmarkCliTests(unittest.TestCase):
         self.fixture_path.write_bytes(b" " * 1_000_001)
         with self.assertRaisesRegex(SearchValidationError, "at most 1000000 bytes"):
             load_fixture(self.fixture_path)
+
+    def test_categories_are_required_and_canonically_validated(self) -> None:
+        invalid = json.loads(json.dumps(FIXTURE))
+        del invalid["cases"][0]["category"]
+        self.fixture_path.write_text(json.dumps(invalid), encoding="utf-8")
+        with self.assertRaisesRegex(SearchValidationError, "missing category"):
+            load_fixture(self.fixture_path)
+
+        invalid = json.loads(json.dumps(FIXTURE))
+        invalid["cases"][0]["category"] = " untrimmed "
+        self.fixture_path.write_text(json.dumps(invalid), encoding="utf-8")
+        with self.assertRaisesRegex(SearchValidationError, "trimmed non-empty string"):
+            run_benchmark(self.fixture_path, k=2, typo_tolerance=False)
 
 
 if __name__ == "__main__":
