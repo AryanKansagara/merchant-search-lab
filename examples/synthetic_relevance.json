@@ -28,14 +28,17 @@
   "cases": [
     {
       "query": "blue mug",
+      "category": "exact_product_intent",
       "relevant_skus": ["MUG-BLUE"]
     },
     {
       "query": "cofee",
+      "category": "misspelling",
       "relevant_skus": ["MUG-BLUE", "MUG-WHITE"]
     },
     {
       "query": "breakfast tea",
+      "category": "exact_product_intent",
       "relevant_skus": ["TEA-BLUE"]
     }
   ]

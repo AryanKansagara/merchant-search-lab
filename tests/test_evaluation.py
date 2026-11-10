@@ -50,6 +50,27 @@ class RelevanceEvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(report.zero_result_rate, 1 / 3)
         self.assertEqual(report.no_relevant_result_count, 1)
         self.assertAlmostEqual(report.no_relevant_result_rate, 1 / 3)
+        self.assertEqual(len(report.categories), 1)
+        self.assertEqual(report.categories[0].category, "uncategorized")
+        self.assertEqual(report.categories[0].query_count, 3)
+
+    def test_category_metrics_are_sorted_and_computed_per_category(self) -> None:
+        report = evaluate_relevance(
+            self.index,
+            (
+                RelevanceCase("unknown", ("TEA-BLUE",), "zero_result"),
+                RelevanceCase("blue mug", ("MUG-BLUE",), "exact_intent"),
+                RelevanceCase("travel", ("MUG-WHITE",), "exact_intent"),
+            ),
+            k=2,
+        )
+
+        self.assertEqual(
+            [item.category for item in report.categories], ["exact_intent", "zero_result"]
+        )
+        self.assertEqual(report.categories[0].query_count, 2)
+        self.assertEqual(report.categories[0].macro_recall_at_k, 1.0)
+        self.assertEqual(report.categories[1].zero_result_rate, 1.0)
 
     def test_no_relevant_result_is_distinct_from_zero_results(self) -> None:
         report = evaluate_relevance(
@@ -98,6 +119,9 @@ class RelevanceEvaluationTests(unittest.TestCase):
             lambda: evaluate_relevance(self.index, (RelevanceCase("blue", ("MUG-BLUE",)),), k=0),
             lambda: evaluate_relevance(self.index, (RelevanceCase("blue", ("MUG-BLUE",)),), k=True),
             lambda: evaluate_relevance(self.index, (RelevanceCase("", ("MUG-BLUE",)),)),
+            lambda: evaluate_relevance(
+                self.index, (RelevanceCase("blue", ("MUG-BLUE",), " untrimmed "),)
+            ),
             lambda: evaluate_relevance(self.index, (RelevanceCase("blue", ()),)),
             lambda: evaluate_relevance(self.index, (RelevanceCase("blue", ("MUG-BLUE", "MUG-BLUE")),)),
             lambda: evaluate_relevance(self.index, (RelevanceCase("blue", ("UNKNOWN",)),)),
