@@ -66,6 +66,8 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(aggregate["query_count"], 2)
         self.assertEqual(aggregate["zero_result_count"], 0)
         self.assertEqual(aggregate["no_relevant_result_count"], 0)
+        self.assertEqual(aggregate["average_retrieved_count"], 2.0)
+        self.assertEqual(aggregate["underfilled_query_count"], 0)
         self.assertEqual(
             [item["category"] for item in categories],
             ["exact_product_intent", "misspelling"],
@@ -73,6 +75,8 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(categories[0]["query_count"], 1)
         self.assertEqual(queries[0]["category"], "exact_product_intent")
         self.assertEqual(queries[0]["retrieved_skus"], ["MUG-BLUE", "MUG-WHITE"])
+        self.assertEqual(queries[0]["retrieved_count"], 2)
+        self.assertFalse(queries[0]["underfilled_results"])
         self.assertFalse(queries[0]["zero_results"])
         self.assertFalse(queries[0]["no_relevant_results"])
         self.assertEqual(queries[1]["recall_at_k"], 1.0)
@@ -106,6 +110,14 @@ class BenchmarkCliTests(unittest.TestCase):
             {"baseline": 1, "candidate": 0, "delta": -1},
         )
         self.assertEqual(
+            aggregate["average_retrieved_count"],
+            {"baseline": 1.0, "candidate": 2.0, "delta": 1.0},
+        )
+        self.assertEqual(
+            aggregate["underfilled_query_count"],
+            {"baseline": 1, "candidate": 0, "delta": -1},
+        )
+        self.assertEqual(
             aggregate["no_relevant_result_rate"],
             {"baseline": 0.5, "candidate": 0.0, "delta": -0.5},
         )
@@ -113,6 +125,13 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(queries[0]["recall_at_k"]["delta"], 0.0)
         self.assertEqual(queries[1]["baseline_retrieved_skus"], [])
         self.assertEqual(queries[1]["candidate_retrieved_skus"], ["MUG-BLUE", "MUG-WHITE"])
+        self.assertEqual(
+            queries[1]["retrieved_count"],
+            {"baseline": 0, "candidate": 2, "delta": 2},
+        )
+        self.assertEqual(
+            queries[1]["underfilled_results"], {"baseline": True, "candidate": False}
+        )
         self.assertEqual(queries[1]["zero_results"], {"baseline": True, "candidate": False})
         self.assertEqual(
             queries[1]["no_relevant_results"], {"baseline": True, "candidate": False}
