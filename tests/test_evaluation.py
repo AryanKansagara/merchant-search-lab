@@ -46,6 +46,9 @@ class RelevanceEvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(report.macro_precision_at_k, 0.5)
         self.assertAlmostEqual(report.macro_recall_at_k, 2 / 3)
         self.assertAlmostEqual(report.mean_reciprocal_rank, 2 / 3)
+        self.assertAlmostEqual(report.average_retrieved_count, 4 / 3)
+        self.assertEqual(report.underfilled_query_count, 1)
+        self.assertAlmostEqual(report.underfilled_query_rate, 1 / 3)
         self.assertEqual(report.zero_result_count, 1)
         self.assertAlmostEqual(report.zero_result_rate, 1 / 3)
         self.assertEqual(report.no_relevant_result_count, 1)
@@ -70,6 +73,8 @@ class RelevanceEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(report.categories[0].query_count, 2)
         self.assertEqual(report.categories[0].macro_recall_at_k, 1.0)
+        self.assertEqual(report.categories[0].average_retrieved_count, 1.5)
+        self.assertEqual(report.categories[0].underfilled_query_count, 1)
         self.assertEqual(report.categories[1].zero_result_rate, 1.0)
 
     def test_no_relevant_result_is_distinct_from_zero_results(self) -> None:

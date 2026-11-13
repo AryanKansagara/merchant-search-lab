@@ -39,6 +39,9 @@ class CategoryMetrics:
     macro_precision_at_k: float
     macro_recall_at_k: float
     mean_reciprocal_rank: float
+    average_retrieved_count: float
+    underfilled_query_count: int
+    underfilled_query_rate: float
     zero_result_count: int
     zero_result_rate: float
     no_relevant_result_count: int
@@ -52,6 +55,9 @@ class EvaluationReport:
     macro_precision_at_k: float
     macro_recall_at_k: float
     mean_reciprocal_rank: float
+    average_retrieved_count: float
+    underfilled_query_count: int
+    underfilled_query_rate: float
     zero_result_count: int
     zero_result_rate: float
     no_relevant_result_count: int
@@ -60,8 +66,11 @@ class EvaluationReport:
     queries: tuple[QueryMetrics, ...]
 
 
-def _category_metrics(category: str, queries: tuple[QueryMetrics, ...]) -> CategoryMetrics:
+def _category_metrics(
+    category: str, queries: tuple[QueryMetrics, ...], *, k: int
+) -> CategoryMetrics:
     count = len(queries)
+    underfilled_query_count = sum(len(item.retrieved_skus) < k for item in queries)
     zero_result_count = sum(not item.retrieved_skus for item in queries)
     no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in queries)
     return CategoryMetrics(
@@ -70,6 +79,9 @@ def _category_metrics(category: str, queries: tuple[QueryMetrics, ...]) -> Categ
         macro_precision_at_k=sum(item.precision_at_k for item in queries) / count,
         macro_recall_at_k=sum(item.recall_at_k for item in queries) / count,
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in queries) / count,
+        average_retrieved_count=sum(len(item.retrieved_skus) for item in queries) / count,
+        underfilled_query_count=underfilled_query_count,
+        underfilled_query_rate=underfilled_query_count / count,
         zero_result_count=zero_result_count,
         zero_result_rate=zero_result_count / count,
         no_relevant_result_count=no_relevant_result_count,
@@ -162,6 +174,7 @@ def evaluate_relevance(
     category_names = sorted({item.category for item in query_metrics})
     if len(category_names) > _MAX_CATEGORIES:
         raise SearchValidationError(f"cases must contain at most {_MAX_CATEGORIES} categories")
+    underfilled_query_count = sum(len(item.retrieved_skus) < k for item in query_metrics)
     zero_result_count = sum(not item.retrieved_skus for item in query_metrics)
     no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in query_metrics)
     return EvaluationReport(
@@ -170,6 +183,9 @@ def evaluate_relevance(
         macro_precision_at_k=sum(item.precision_at_k for item in query_metrics) / count,
         macro_recall_at_k=sum(item.recall_at_k for item in query_metrics) / count,
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in query_metrics) / count,
+        average_retrieved_count=sum(len(item.retrieved_skus) for item in query_metrics) / count,
+        underfilled_query_count=underfilled_query_count,
+        underfilled_query_rate=underfilled_query_count / count,
         zero_result_count=zero_result_count,
         zero_result_rate=zero_result_count / count,
         no_relevant_result_count=no_relevant_result_count,
@@ -178,6 +194,7 @@ def evaluate_relevance(
             _category_metrics(
                 category,
                 tuple(item for item in query_metrics if item.category == category),
+                k=k,
             )
             for category in category_names
         ),
