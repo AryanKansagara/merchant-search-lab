@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import log2
 from typing import Iterable
 
 from .search import SearchIndex, SearchValidationError
@@ -30,6 +31,7 @@ class QueryMetrics:
     precision_at_k: float
     recall_at_k: float
     reciprocal_rank: float
+    ndcg_at_k: float
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ class CategoryMetrics:
     macro_precision_at_k: float
     macro_recall_at_k: float
     mean_reciprocal_rank: float
+    macro_ndcg_at_k: float
     average_retrieved_count: float
     underfilled_query_count: int
     underfilled_query_rate: float
@@ -55,6 +58,7 @@ class EvaluationReport:
     macro_precision_at_k: float
     macro_recall_at_k: float
     mean_reciprocal_rank: float
+    macro_ndcg_at_k: float
     average_retrieved_count: float
     underfilled_query_count: int
     underfilled_query_rate: float
@@ -79,6 +83,7 @@ def _category_metrics(
         macro_precision_at_k=sum(item.precision_at_k for item in queries) / count,
         macro_recall_at_k=sum(item.recall_at_k for item in queries) / count,
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in queries) / count,
+        macro_ndcg_at_k=sum(item.ndcg_at_k for item in queries) / count,
         average_retrieved_count=sum(len(item.retrieved_skus) for item in queries) / count,
         underfilled_query_count=underfilled_query_count,
         underfilled_query_rate=underfilled_query_count / count,
@@ -157,6 +162,15 @@ def evaluate_relevance(
             (rank for rank, sku in enumerate(retrieved, start=1) if sku in relevant),
             None,
         )
+        discounted_gain = sum(
+            1.0 / log2(rank + 1)
+            for rank, sku in enumerate(retrieved, start=1)
+            if sku in relevant
+        )
+        ideal_relevant_count = min(len(relevant), k)
+        ideal_discounted_gain = sum(
+            1.0 / log2(rank + 1) for rank in range(1, ideal_relevant_count + 1)
+        )
         query_metrics.append(
             QueryMetrics(
                 query=case.query,
@@ -167,6 +181,7 @@ def evaluate_relevance(
                 precision_at_k=relevant_retrieved / k,
                 recall_at_k=relevant_retrieved / len(relevant),
                 reciprocal_rank=0.0 if first_relevant_rank is None else 1.0 / first_relevant_rank,
+                ndcg_at_k=discounted_gain / ideal_discounted_gain,
             )
         )
 
@@ -183,6 +198,7 @@ def evaluate_relevance(
         macro_precision_at_k=sum(item.precision_at_k for item in query_metrics) / count,
         macro_recall_at_k=sum(item.recall_at_k for item in query_metrics) / count,
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in query_metrics) / count,
+        macro_ndcg_at_k=sum(item.ndcg_at_k for item in query_metrics) / count,
         average_retrieved_count=sum(len(item.retrieved_skus) for item in query_metrics) / count,
         underfilled_query_count=underfilled_query_count,
         underfilled_query_rate=underfilled_query_count / count,

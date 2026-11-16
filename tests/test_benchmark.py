@@ -68,6 +68,7 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(aggregate["no_relevant_result_count"], 0)
         self.assertEqual(aggregate["average_retrieved_count"], 2.0)
         self.assertEqual(aggregate["underfilled_query_count"], 0)
+        self.assertEqual(aggregate["macro_ndcg_at_k"], 1.0)
         self.assertEqual(
             [item["category"] for item in categories],
             ["exact_product_intent", "misspelling"],
@@ -80,6 +81,7 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertFalse(queries[0]["zero_results"])
         self.assertFalse(queries[0]["no_relevant_results"])
         self.assertEqual(queries[1]["recall_at_k"], 1.0)
+        self.assertEqual(queries[1]["ndcg_at_k"], 1.0)
 
     def test_cli_writes_json_and_returns_success(self) -> None:
         output = io.StringIO()
@@ -103,6 +105,10 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(configuration["candidate"], {"typo_tolerance": True})
         self.assertEqual(
             aggregate["macro_recall_at_k"],
+            {"baseline": 0.5, "candidate": 1.0, "delta": 0.5},
+        )
+        self.assertEqual(
+            aggregate["macro_ndcg_at_k"],
             {"baseline": 0.5, "candidate": 1.0, "delta": 0.5},
         )
         self.assertEqual(
@@ -137,6 +143,7 @@ class BenchmarkCliTests(unittest.TestCase):
             queries[1]["no_relevant_results"], {"baseline": True, "candidate": False}
         )
         self.assertEqual(queries[1]["recall_at_k"]["delta"], 1.0)
+        self.assertEqual(queries[1]["ndcg_at_k"]["delta"], 1.0)
         self.assertEqual(categories[0]["macro_recall_at_k"]["delta"], 0.0)
         self.assertEqual(categories[1]["macro_recall_at_k"]["delta"], 1.0)
 

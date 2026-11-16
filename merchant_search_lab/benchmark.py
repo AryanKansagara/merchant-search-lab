@@ -111,6 +111,7 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
             "macro_precision_at_k": report.macro_precision_at_k,
             "macro_recall_at_k": report.macro_recall_at_k,
             "mean_reciprocal_rank": report.mean_reciprocal_rank,
+            "macro_ndcg_at_k": report.macro_ndcg_at_k,
             "average_retrieved_count": report.average_retrieved_count,
             "underfilled_query_count": report.underfilled_query_count,
             "underfilled_query_rate": report.underfilled_query_rate,
@@ -126,6 +127,7 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
                 "macro_precision_at_k": item.macro_precision_at_k,
                 "macro_recall_at_k": item.macro_recall_at_k,
                 "mean_reciprocal_rank": item.mean_reciprocal_rank,
+                "macro_ndcg_at_k": item.macro_ndcg_at_k,
                 "average_retrieved_count": item.average_retrieved_count,
                 "underfilled_query_count": item.underfilled_query_count,
                 "underfilled_query_rate": item.underfilled_query_rate,
@@ -150,6 +152,7 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
                 "precision_at_k": item.precision_at_k,
                 "recall_at_k": item.recall_at_k,
                 "reciprocal_rank": item.reciprocal_rank,
+                "ndcg_at_k": item.ndcg_at_k,
             }
             for item in report.queries
         ],
@@ -215,6 +218,9 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "mean_reciprocal_rank": _metric_comparison(
                 baseline.mean_reciprocal_rank, candidate.mean_reciprocal_rank
             ),
+            "macro_ndcg_at_k": _metric_comparison(
+                baseline.macro_ndcg_at_k, candidate.macro_ndcg_at_k
+            ),
             "average_retrieved_count": _metric_comparison(
                 baseline.average_retrieved_count, candidate.average_retrieved_count
             ),
@@ -249,6 +255,9 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 ),
                 "mean_reciprocal_rank": _metric_comparison(
                     baseline_item.mean_reciprocal_rank, candidate_item.mean_reciprocal_rank
+                ),
+                "macro_ndcg_at_k": _metric_comparison(
+                    baseline_item.macro_ndcg_at_k, candidate_item.macro_ndcg_at_k
                 ),
                 "average_retrieved_count": _metric_comparison(
                     baseline_item.average_retrieved_count,
@@ -315,6 +324,9 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 "reciprocal_rank": _metric_comparison(
                     baseline_item.reciprocal_rank, candidate_item.reciprocal_rank
                 ),
+                "ndcg_at_k": _metric_comparison(
+                    baseline_item.ndcg_at_k, candidate_item.ndcg_at_k
+                ),
             }
             for baseline_item, candidate_item in zip(
                 baseline.queries, candidate.queries, strict=True
@@ -326,6 +338,7 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "Zero-result and no-relevant-result rates describe only the bounded labeled fixture.",
             "Result-depth diagnostics depend on the selected k and do not measure online satisfaction.",
             "Category diagnostics are only as representative as the hand-authored category labels.",
+            "Binary-label nDCG describes ordering within top-k, not graded customer preference.",
         ],
     }
 

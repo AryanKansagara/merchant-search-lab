@@ -46,6 +46,7 @@ class RelevanceEvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(report.macro_precision_at_k, 0.5)
         self.assertAlmostEqual(report.macro_recall_at_k, 2 / 3)
         self.assertAlmostEqual(report.mean_reciprocal_rank, 2 / 3)
+        self.assertAlmostEqual(report.macro_ndcg_at_k, 2 / 3)
         self.assertAlmostEqual(report.average_retrieved_count, 4 / 3)
         self.assertEqual(report.underfilled_query_count, 1)
         self.assertAlmostEqual(report.underfilled_query_rate, 1 / 3)
@@ -105,6 +106,18 @@ class RelevanceEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(report.queries[0].retrieved_skus, ("MUG-BLUE", "TEA-BLUE"))
         self.assertEqual(report.queries[0].reciprocal_rank, 0.5)
+        self.assertAlmostEqual(report.queries[0].ndcg_at_k, 0.6309297535714575)
+
+    def test_ndcg_is_one_for_an_ideal_binary_relevance_ordering(self) -> None:
+        report = evaluate_relevance(
+            self.index,
+            (RelevanceCase("blue", ("MUG-BLUE", "TEA-BLUE")),),
+            k=3,
+        )
+
+        self.assertEqual(report.queries[0].retrieved_skus, ("MUG-BLUE", "TEA-BLUE"))
+        self.assertEqual(report.queries[0].ndcg_at_k, 1.0)
+        self.assertEqual(report.categories[0].macro_ndcg_at_k, 1.0)
 
     def test_typo_tolerance_is_explicitly_forwarded(self) -> None:
         case = (RelevanceCase("cofee", ("MUG-BLUE", "MUG-WHITE")),)
