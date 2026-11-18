@@ -113,6 +113,12 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
             "mean_reciprocal_rank": report.mean_reciprocal_rank,
             "macro_ndcg_at_k": report.macro_ndcg_at_k,
             "average_retrieved_count": report.average_retrieved_count,
+            "catalog_size": report.catalog_size,
+            "unique_retrieved_count": report.unique_retrieved_count,
+            "catalog_coverage_rate": report.catalog_coverage_rate,
+            "judged_relevant_sku_count": report.judged_relevant_sku_count,
+            "retrieved_relevant_sku_count": report.retrieved_relevant_sku_count,
+            "judged_relevant_coverage_rate": report.judged_relevant_coverage_rate,
             "underfilled_query_count": report.underfilled_query_count,
             "underfilled_query_rate": report.underfilled_query_rate,
             "zero_result_count": report.zero_result_count,
@@ -129,6 +135,11 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
                 "mean_reciprocal_rank": item.mean_reciprocal_rank,
                 "macro_ndcg_at_k": item.macro_ndcg_at_k,
                 "average_retrieved_count": item.average_retrieved_count,
+                "unique_retrieved_count": item.unique_retrieved_count,
+                "catalog_coverage_rate": item.catalog_coverage_rate,
+                "judged_relevant_sku_count": item.judged_relevant_sku_count,
+                "retrieved_relevant_sku_count": item.retrieved_relevant_sku_count,
+                "judged_relevant_coverage_rate": item.judged_relevant_coverage_rate,
                 "underfilled_query_count": item.underfilled_query_count,
                 "underfilled_query_rate": item.underfilled_query_rate,
                 "zero_result_count": item.zero_result_count,
@@ -224,6 +235,21 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "average_retrieved_count": _metric_comparison(
                 baseline.average_retrieved_count, candidate.average_retrieved_count
             ),
+            "catalog_size": baseline.catalog_size,
+            "unique_retrieved_count": _count_comparison(
+                baseline.unique_retrieved_count, candidate.unique_retrieved_count
+            ),
+            "catalog_coverage_rate": _metric_comparison(
+                baseline.catalog_coverage_rate, candidate.catalog_coverage_rate
+            ),
+            "judged_relevant_sku_count": baseline.judged_relevant_sku_count,
+            "retrieved_relevant_sku_count": _count_comparison(
+                baseline.retrieved_relevant_sku_count, candidate.retrieved_relevant_sku_count
+            ),
+            "judged_relevant_coverage_rate": _metric_comparison(
+                baseline.judged_relevant_coverage_rate,
+                candidate.judged_relevant_coverage_rate,
+            ),
             "underfilled_query_count": _count_comparison(
                 baseline.underfilled_query_count, candidate.underfilled_query_count
             ),
@@ -262,6 +288,23 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 "average_retrieved_count": _metric_comparison(
                     baseline_item.average_retrieved_count,
                     candidate_item.average_retrieved_count,
+                ),
+                "unique_retrieved_count": _count_comparison(
+                    baseline_item.unique_retrieved_count,
+                    candidate_item.unique_retrieved_count,
+                ),
+                "catalog_coverage_rate": _metric_comparison(
+                    baseline_item.catalog_coverage_rate,
+                    candidate_item.catalog_coverage_rate,
+                ),
+                "judged_relevant_sku_count": baseline_item.judged_relevant_sku_count,
+                "retrieved_relevant_sku_count": _count_comparison(
+                    baseline_item.retrieved_relevant_sku_count,
+                    candidate_item.retrieved_relevant_sku_count,
+                ),
+                "judged_relevant_coverage_rate": _metric_comparison(
+                    baseline_item.judged_relevant_coverage_rate,
+                    candidate_item.judged_relevant_coverage_rate,
                 ),
                 "underfilled_query_count": _count_comparison(
                     baseline_item.underfilled_query_count,
@@ -337,6 +380,7 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "A positive aggregate delta is not an automatic release decision; inspect each query.",
             "Zero-result and no-relevant-result rates describe only the bounded labeled fixture.",
             "Result-depth diagnostics depend on the selected k and do not measure online satisfaction.",
+            "Catalog and judged-relevant coverage describe this fixture, not assortment discovery or diversity.",
             "Category diagnostics are only as representative as the hand-authored category labels.",
             "Binary-label nDCG describes ordering within top-k, not graded customer preference.",
         ],
