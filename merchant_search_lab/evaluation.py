@@ -26,7 +26,9 @@ class QueryMetrics:
     query: str
     category: str
     relevant_count: int
+    relevant_skus: tuple[str, ...]
     retrieved_skus: tuple[str, ...]
+    relevant_retrieved_skus: tuple[str, ...]
     relevant_retrieved: int
     precision_at_k: float
     recall_at_k: float
@@ -43,6 +45,11 @@ class CategoryMetrics:
     mean_reciprocal_rank: float
     macro_ndcg_at_k: float
     average_retrieved_count: float
+    unique_retrieved_count: int
+    catalog_coverage_rate: float
+    judged_relevant_sku_count: int
+    retrieved_relevant_sku_count: int
+    judged_relevant_coverage_rate: float
     underfilled_query_count: int
     underfilled_query_rate: float
     zero_result_count: int
@@ -60,6 +67,12 @@ class EvaluationReport:
     mean_reciprocal_rank: float
     macro_ndcg_at_k: float
     average_retrieved_count: float
+    catalog_size: int
+    unique_retrieved_count: int
+    catalog_coverage_rate: float
+    judged_relevant_sku_count: int
+    retrieved_relevant_sku_count: int
+    judged_relevant_coverage_rate: float
     underfilled_query_count: int
     underfilled_query_rate: float
     zero_result_count: int
@@ -71,9 +84,16 @@ class EvaluationReport:
 
 
 def _category_metrics(
-    category: str, queries: tuple[QueryMetrics, ...], *, k: int
+    category: str,
+    queries: tuple[QueryMetrics, ...],
+    *,
+    k: int,
+    catalog_size: int,
 ) -> CategoryMetrics:
     count = len(queries)
+    unique_retrieved = {sku for item in queries for sku in item.retrieved_skus}
+    judged_relevant = {sku for item in queries for sku in item.relevant_skus}
+    retrieved_relevant = {sku for item in queries for sku in item.relevant_retrieved_skus}
     underfilled_query_count = sum(len(item.retrieved_skus) < k for item in queries)
     zero_result_count = sum(not item.retrieved_skus for item in queries)
     no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in queries)
@@ -85,6 +105,11 @@ def _category_metrics(
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in queries) / count,
         macro_ndcg_at_k=sum(item.ndcg_at_k for item in queries) / count,
         average_retrieved_count=sum(len(item.retrieved_skus) for item in queries) / count,
+        unique_retrieved_count=len(unique_retrieved),
+        catalog_coverage_rate=len(unique_retrieved) / catalog_size,
+        judged_relevant_sku_count=len(judged_relevant),
+        retrieved_relevant_sku_count=len(retrieved_relevant),
+        judged_relevant_coverage_rate=len(retrieved_relevant) / len(judged_relevant),
         underfilled_query_count=underfilled_query_count,
         underfilled_query_rate=underfilled_query_count / count,
         zero_result_count=zero_result_count,
@@ -157,7 +182,8 @@ def evaluate_relevance(
             for hit in index.search(case.query, limit=k, typo_tolerance=typo_tolerance).hits
         )
         relevant = set(case.relevant_skus)
-        relevant_retrieved = sum(sku in relevant for sku in retrieved)
+        relevant_retrieved_skus = tuple(sku for sku in retrieved if sku in relevant)
+        relevant_retrieved = len(relevant_retrieved_skus)
         first_relevant_rank = next(
             (rank for rank, sku in enumerate(retrieved, start=1) if sku in relevant),
             None,
@@ -176,7 +202,9 @@ def evaluate_relevance(
                 query=case.query,
                 category=case.category,
                 relevant_count=len(relevant),
+                relevant_skus=case.relevant_skus,
                 retrieved_skus=retrieved,
+                relevant_retrieved_skus=relevant_retrieved_skus,
                 relevant_retrieved=relevant_retrieved,
                 precision_at_k=relevant_retrieved / k,
                 recall_at_k=relevant_retrieved / len(relevant),
@@ -186,6 +214,9 @@ def evaluate_relevance(
         )
 
     count = len(query_metrics)
+    unique_retrieved = {sku for item in query_metrics for sku in item.retrieved_skus}
+    judged_relevant = {sku for item in query_metrics for sku in item.relevant_skus}
+    retrieved_relevant = {sku for item in query_metrics for sku in item.relevant_retrieved_skus}
     category_names = sorted({item.category for item in query_metrics})
     if len(category_names) > _MAX_CATEGORIES:
         raise SearchValidationError(f"cases must contain at most {_MAX_CATEGORIES} categories")
@@ -200,6 +231,12 @@ def evaluate_relevance(
         mean_reciprocal_rank=sum(item.reciprocal_rank for item in query_metrics) / count,
         macro_ndcg_at_k=sum(item.ndcg_at_k for item in query_metrics) / count,
         average_retrieved_count=sum(len(item.retrieved_skus) for item in query_metrics) / count,
+        catalog_size=len(catalog_skus),
+        unique_retrieved_count=len(unique_retrieved),
+        catalog_coverage_rate=len(unique_retrieved) / len(catalog_skus),
+        judged_relevant_sku_count=len(judged_relevant),
+        retrieved_relevant_sku_count=len(retrieved_relevant),
+        judged_relevant_coverage_rate=len(retrieved_relevant) / len(judged_relevant),
         underfilled_query_count=underfilled_query_count,
         underfilled_query_rate=underfilled_query_count / count,
         zero_result_count=zero_result_count,
@@ -211,6 +248,7 @@ def evaluate_relevance(
                 category,
                 tuple(item for item in query_metrics if item.category == category),
                 k=k,
+                catalog_size=len(catalog_skus),
             )
             for category in category_names
         ),

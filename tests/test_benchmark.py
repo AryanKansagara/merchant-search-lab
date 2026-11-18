@@ -69,6 +69,12 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(aggregate["average_retrieved_count"], 2.0)
         self.assertEqual(aggregate["underfilled_query_count"], 0)
         self.assertEqual(aggregate["macro_ndcg_at_k"], 1.0)
+        self.assertEqual(aggregate["catalog_size"], 2)
+        self.assertEqual(aggregate["unique_retrieved_count"], 2)
+        self.assertEqual(aggregate["catalog_coverage_rate"], 1.0)
+        self.assertEqual(aggregate["judged_relevant_sku_count"], 2)
+        self.assertEqual(aggregate["retrieved_relevant_sku_count"], 2)
+        self.assertEqual(aggregate["judged_relevant_coverage_rate"], 1.0)
         self.assertEqual(
             [item["category"] for item in categories],
             ["exact_product_intent", "misspelling"],
@@ -123,6 +129,15 @@ class BenchmarkCliTests(unittest.TestCase):
             aggregate["underfilled_query_count"],
             {"baseline": 1, "candidate": 0, "delta": -1},
         )
+        self.assertEqual(aggregate["catalog_size"], 2)
+        self.assertEqual(
+            aggregate["unique_retrieved_count"],
+            {"baseline": 2, "candidate": 2, "delta": 0},
+        )
+        self.assertEqual(
+            aggregate["judged_relevant_coverage_rate"],
+            {"baseline": 0.5, "candidate": 1.0, "delta": 0.5},
+        )
         self.assertEqual(
             aggregate["no_relevant_result_rate"],
             {"baseline": 0.5, "candidate": 0.0, "delta": -0.5},
@@ -146,6 +161,7 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(queries[1]["ndcg_at_k"]["delta"], 1.0)
         self.assertEqual(categories[0]["macro_recall_at_k"]["delta"], 0.0)
         self.assertEqual(categories[1]["macro_recall_at_k"]["delta"], 1.0)
+        self.assertEqual(categories[1]["retrieved_relevant_sku_count"]["delta"], 2)
 
     def test_cli_comparison_is_deterministic(self) -> None:
         first = io.StringIO()
