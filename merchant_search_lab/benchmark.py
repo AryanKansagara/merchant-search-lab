@@ -119,6 +119,9 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
             "judged_relevant_sku_count": report.judged_relevant_sku_count,
             "retrieved_relevant_sku_count": report.retrieved_relevant_sku_count,
             "judged_relevant_coverage_rate": report.judged_relevant_coverage_rate,
+            "relevant_judgment_count": report.relevant_judgment_count,
+            "retrieved_relevant_judgment_count": report.retrieved_relevant_judgment_count,
+            "micro_recall_at_k": report.micro_recall_at_k,
             "underfilled_query_count": report.underfilled_query_count,
             "underfilled_query_rate": report.underfilled_query_rate,
             "zero_result_count": report.zero_result_count,
@@ -140,6 +143,9 @@ def report_document(report: EvaluationReport, *, typo_tolerance: bool) -> dict[s
                 "judged_relevant_sku_count": item.judged_relevant_sku_count,
                 "retrieved_relevant_sku_count": item.retrieved_relevant_sku_count,
                 "judged_relevant_coverage_rate": item.judged_relevant_coverage_rate,
+                "relevant_judgment_count": item.relevant_judgment_count,
+                "retrieved_relevant_judgment_count": item.retrieved_relevant_judgment_count,
+                "micro_recall_at_k": item.micro_recall_at_k,
                 "underfilled_query_count": item.underfilled_query_count,
                 "underfilled_query_rate": item.underfilled_query_rate,
                 "zero_result_count": item.zero_result_count,
@@ -250,6 +256,14 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 baseline.judged_relevant_coverage_rate,
                 candidate.judged_relevant_coverage_rate,
             ),
+            "relevant_judgment_count": baseline.relevant_judgment_count,
+            "retrieved_relevant_judgment_count": _count_comparison(
+                baseline.retrieved_relevant_judgment_count,
+                candidate.retrieved_relevant_judgment_count,
+            ),
+            "micro_recall_at_k": _metric_comparison(
+                baseline.micro_recall_at_k, candidate.micro_recall_at_k
+            ),
             "underfilled_query_count": _count_comparison(
                 baseline.underfilled_query_count, candidate.underfilled_query_count
             ),
@@ -305,6 +319,14 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
                 "judged_relevant_coverage_rate": _metric_comparison(
                     baseline_item.judged_relevant_coverage_rate,
                     candidate_item.judged_relevant_coverage_rate,
+                ),
+                "relevant_judgment_count": baseline_item.relevant_judgment_count,
+                "retrieved_relevant_judgment_count": _count_comparison(
+                    baseline_item.retrieved_relevant_judgment_count,
+                    candidate_item.retrieved_relevant_judgment_count,
+                ),
+                "micro_recall_at_k": _metric_comparison(
+                    baseline_item.micro_recall_at_k, candidate_item.micro_recall_at_k
                 ),
                 "underfilled_query_count": _count_comparison(
                     baseline_item.underfilled_query_count,
@@ -381,6 +403,7 @@ def run_comparison(path: str | Path, *, k: int) -> dict[str, object]:
             "Zero-result and no-relevant-result rates describe only the bounded labeled fixture.",
             "Result-depth diagnostics depend on the selected k and do not measure online satisfaction.",
             "Catalog and judged-relevant coverage describe this fixture, not assortment discovery or diversity.",
+            "Judgment-pair micro recall weights every query-SKU label equally and remains fixture-bound.",
             "Category diagnostics are only as representative as the hand-authored category labels.",
             "Binary-label nDCG describes ordering within top-k, not graded customer preference.",
         ],
