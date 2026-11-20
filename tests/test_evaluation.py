@@ -54,6 +54,9 @@ class RelevanceEvaluationTests(unittest.TestCase):
         self.assertEqual(report.judged_relevant_sku_count, 3)
         self.assertEqual(report.retrieved_relevant_sku_count, 2)
         self.assertAlmostEqual(report.judged_relevant_coverage_rate, 2 / 3)
+        self.assertEqual(report.relevant_judgment_count, 4)
+        self.assertEqual(report.retrieved_relevant_judgment_count, 3)
+        self.assertEqual(report.micro_recall_at_k, 0.75)
         self.assertEqual(report.underfilled_query_count, 1)
         self.assertAlmostEqual(report.underfilled_query_rate, 1 / 3)
         self.assertEqual(report.zero_result_count, 1)
@@ -86,6 +89,9 @@ class RelevanceEvaluationTests(unittest.TestCase):
         self.assertEqual(report.categories[0].judged_relevant_sku_count, 2)
         self.assertEqual(report.categories[0].retrieved_relevant_sku_count, 2)
         self.assertEqual(report.categories[0].judged_relevant_coverage_rate, 1.0)
+        self.assertEqual(report.categories[0].relevant_judgment_count, 2)
+        self.assertEqual(report.categories[0].retrieved_relevant_judgment_count, 2)
+        self.assertEqual(report.categories[0].micro_recall_at_k, 1.0)
         self.assertEqual(report.categories[0].underfilled_query_count, 1)
         self.assertEqual(report.categories[1].zero_result_rate, 1.0)
 
@@ -108,6 +114,23 @@ class RelevanceEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(report.queries[0].retrieved_skus, ("MUG-WHITE",))
         self.assertAlmostEqual(report.queries[0].precision_at_k, 1 / 3)
+
+    def test_micro_recall_counts_repeated_sku_judgments_per_query(self) -> None:
+        report = evaluate_relevance(
+            self.index,
+            (
+                RelevanceCase("blue mug", ("MUG-BLUE",)),
+                RelevanceCase("unknown", ("MUG-BLUE",)),
+            ),
+            k=1,
+        )
+
+        self.assertEqual(report.judged_relevant_sku_count, 1)
+        self.assertEqual(report.retrieved_relevant_sku_count, 1)
+        self.assertEqual(report.judged_relevant_coverage_rate, 1.0)
+        self.assertEqual(report.relevant_judgment_count, 2)
+        self.assertEqual(report.retrieved_relevant_judgment_count, 1)
+        self.assertEqual(report.micro_recall_at_k, 0.5)
 
     def test_reciprocal_rank_uses_first_relevant_result(self) -> None:
         report = evaluate_relevance(

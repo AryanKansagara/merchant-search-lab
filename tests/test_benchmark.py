@@ -75,6 +75,9 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(aggregate["judged_relevant_sku_count"], 2)
         self.assertEqual(aggregate["retrieved_relevant_sku_count"], 2)
         self.assertEqual(aggregate["judged_relevant_coverage_rate"], 1.0)
+        self.assertEqual(aggregate["relevant_judgment_count"], 3)
+        self.assertEqual(aggregate["retrieved_relevant_judgment_count"], 3)
+        self.assertEqual(aggregate["micro_recall_at_k"], 1.0)
         self.assertEqual(
             [item["category"] for item in categories],
             ["exact_product_intent", "misspelling"],
@@ -137,6 +140,15 @@ class BenchmarkCliTests(unittest.TestCase):
         self.assertEqual(
             aggregate["judged_relevant_coverage_rate"],
             {"baseline": 0.5, "candidate": 1.0, "delta": 0.5},
+        )
+        self.assertEqual(aggregate["relevant_judgment_count"], 3)
+        self.assertEqual(
+            aggregate["retrieved_relevant_judgment_count"],
+            {"baseline": 1, "candidate": 3, "delta": 2},
+        )
+        self.assertEqual(
+            aggregate["micro_recall_at_k"],
+            {"baseline": 1 / 3, "candidate": 1.0, "delta": 0.666666666667},
         )
         self.assertEqual(
             aggregate["no_relevant_result_rate"],

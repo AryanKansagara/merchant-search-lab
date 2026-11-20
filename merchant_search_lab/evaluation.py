@@ -50,6 +50,9 @@ class CategoryMetrics:
     judged_relevant_sku_count: int
     retrieved_relevant_sku_count: int
     judged_relevant_coverage_rate: float
+    relevant_judgment_count: int
+    retrieved_relevant_judgment_count: int
+    micro_recall_at_k: float
     underfilled_query_count: int
     underfilled_query_rate: float
     zero_result_count: int
@@ -73,6 +76,9 @@ class EvaluationReport:
     judged_relevant_sku_count: int
     retrieved_relevant_sku_count: int
     judged_relevant_coverage_rate: float
+    relevant_judgment_count: int
+    retrieved_relevant_judgment_count: int
+    micro_recall_at_k: float
     underfilled_query_count: int
     underfilled_query_rate: float
     zero_result_count: int
@@ -94,6 +100,8 @@ def _category_metrics(
     unique_retrieved = {sku for item in queries for sku in item.retrieved_skus}
     judged_relevant = {sku for item in queries for sku in item.relevant_skus}
     retrieved_relevant = {sku for item in queries for sku in item.relevant_retrieved_skus}
+    relevant_judgment_count = sum(item.relevant_count for item in queries)
+    retrieved_relevant_judgment_count = sum(item.relevant_retrieved for item in queries)
     underfilled_query_count = sum(len(item.retrieved_skus) < k for item in queries)
     zero_result_count = sum(not item.retrieved_skus for item in queries)
     no_relevant_result_count = sum(item.relevant_retrieved == 0 for item in queries)
@@ -110,6 +118,9 @@ def _category_metrics(
         judged_relevant_sku_count=len(judged_relevant),
         retrieved_relevant_sku_count=len(retrieved_relevant),
         judged_relevant_coverage_rate=len(retrieved_relevant) / len(judged_relevant),
+        relevant_judgment_count=relevant_judgment_count,
+        retrieved_relevant_judgment_count=retrieved_relevant_judgment_count,
+        micro_recall_at_k=retrieved_relevant_judgment_count / relevant_judgment_count,
         underfilled_query_count=underfilled_query_count,
         underfilled_query_rate=underfilled_query_count / count,
         zero_result_count=zero_result_count,
@@ -217,6 +228,8 @@ def evaluate_relevance(
     unique_retrieved = {sku for item in query_metrics for sku in item.retrieved_skus}
     judged_relevant = {sku for item in query_metrics for sku in item.relevant_skus}
     retrieved_relevant = {sku for item in query_metrics for sku in item.relevant_retrieved_skus}
+    relevant_judgment_count = sum(item.relevant_count for item in query_metrics)
+    retrieved_relevant_judgment_count = sum(item.relevant_retrieved for item in query_metrics)
     category_names = sorted({item.category for item in query_metrics})
     if len(category_names) > _MAX_CATEGORIES:
         raise SearchValidationError(f"cases must contain at most {_MAX_CATEGORIES} categories")
@@ -237,6 +250,9 @@ def evaluate_relevance(
         judged_relevant_sku_count=len(judged_relevant),
         retrieved_relevant_sku_count=len(retrieved_relevant),
         judged_relevant_coverage_rate=len(retrieved_relevant) / len(judged_relevant),
+        relevant_judgment_count=relevant_judgment_count,
+        retrieved_relevant_judgment_count=retrieved_relevant_judgment_count,
+        micro_recall_at_k=retrieved_relevant_judgment_count / relevant_judgment_count,
         underfilled_query_count=underfilled_query_count,
         underfilled_query_rate=underfilled_query_count / count,
         zero_result_count=zero_result_count,
